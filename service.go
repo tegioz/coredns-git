@@ -2,21 +2,18 @@ package git
 
 import (
 	"sync"
-
-	"github.com/abiosoft/caddy-git/gitos"
+	"time"
 )
 
 var (
-	// Services holds all git pulling services and provides the function to
-	// stop them.
+	// Services holds all git pulling services and provides the function to stop them.
 	Services = &services{}
 )
 
-// repoService is the service that runs in background and periodically
-// pull from the repository.
+// repoService is the service that runs in background and periodically pull from the repository.
 type repoService struct {
 	repo   *Repo
-	ticker gitos.Ticker  // ticker to tick at intervals
+	ticker *time.Ticker  // ticker to tick at intervals
 	halt   chan struct{} // channel to notify service to halt and stop pulling.
 }
 
@@ -24,21 +21,21 @@ type repoService struct {
 func Start(repo *Repo) {
 	if repo.Interval <= 0 {
 		// ignore, don't setup periodic pull.
-		Logger().Println("interval too small, periodic pull not enabled.")
+		log.Warningf("Interval negative, periodic pull not enabled")
 		return
 	}
 	service := &repoService{
 		repo,
-		gos.NewTicker(repo.Interval),
+		time.NewTicker(repo.Interval),
 		make(chan struct{}),
 	}
 	go func(s *repoService) {
 		for {
 			select {
-			case <-s.ticker.C():
+			case <-s.ticker.C:
 				err := repo.Pull()
 				if err != nil {
-					Logger().Println(err)
+					log.Warning(err)
 				}
 			case <-s.halt:
 				s.ticker.Stop()

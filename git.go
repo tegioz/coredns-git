@@ -2,14 +2,14 @@ package git
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/url"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/abiosoft/caddy-git/gitos"
-	"github.com/caddyserver/caddy"
+	"github.com/coredns/caddy"
 )
 
 const (
@@ -67,12 +67,10 @@ type Repo struct {
 	Interval   time.Duration // Interval between pulls
 	CloneArgs  []string      // Additonal cli args to pass to git clone
 	PullArgs   []string      // Additonal cli args to pass to git pull
-	Then       []Then        // Commands to execute after successful git pull
 	pulled     bool          // true if there was a successful pull
 	lastPull   time.Time     // time of the last successful pull
 	lastCommit string        // hash for the most recent commit
 	latestTag  string        // latest tag name
-	Hook       HookConfig    // Webhook configuration
 	sync.Mutex
 }
 
@@ -83,7 +81,7 @@ func (r *Repo) Pull() error {
 	defer r.Unlock()
 
 	// prevent a pull if the last one was less than 5 seconds ago
-	if gos.TimeSince(r.lastPull) < 5*time.Second {
+	if time.Since(r.lastPull) < 5*time.Second {
 		return nil
 	}
 
@@ -96,7 +94,7 @@ func (r *Repo) Pull() error {
 		if err = r.pull(); err == nil {
 			break
 		}
-		Logger().Println(err)
+		log.Warning(err)
 	}
 
 	if err != nil {
@@ -106,10 +104,9 @@ func (r *Repo) Pull() error {
 	// check if there are new changes,
 	// then execute post pull command
 	if r.lastCommit == lastCommit {
-		Logger().Println("No new changes.")
-		return nil
+		log.Info("No new changes")
 	}
-	return r.execThen()
+	return nil
 }
 
 // pull performs git pull, or git clone if repository does not exist.
@@ -122,7 +119,11 @@ func (r *Repo) pull() error {
 
 	// if latest tag config is set
 	if r.Branch == latestTag {
-		return r.checkoutLatestTag()
+		if err := r.checkoutLatestTag(); err != nil {
+			log.Errorf("Error retrieving latest tag: %s", err)
+			return err
+		}
+		return nil
 	}
 
 	params := append([]string{"pull"}, append(r.PullArgs, "origin", r.Branch)...)
@@ -130,7 +131,7 @@ func (r *Repo) pull() error {
 	if err = r.gitCmd(params, r.Path); err == nil {
 		r.pulled = true
 		r.lastPull = time.Now()
-		Logger().Printf("%v pulled.\n", r.URL)
+		log.Infof("pulled: %v", r.URL)
 		r.lastCommit, err = r.mostRecentCommit()
 	}
 	return err
@@ -149,12 +150,15 @@ func (r *Repo) clone() error {
 	if err = r.gitCmd(params, ""); err == nil {
 		r.pulled = true
 		r.lastPull = time.Now()
-		Logger().Printf("%v pulled.\n", r.URL)
+		log.Infof("pulled: %v", r.URL)
 		r.lastCommit, err = r.mostRecentCommit()
 
 		// if latest tag config is set.
 		if tagMode {
-			return r.checkoutLatestTag()
+			if err := r.checkoutLatestTag(); err != nil {
+				log.Errorf("Error retrieving latest tag: %s", err)
+			}
+			return err
 		}
 	}
 
@@ -165,14 +169,11 @@ func (r *Repo) clone() error {
 func (r *Repo) checkoutLatestTag() error {
 	tag, err := r.fetchLatestTag()
 	if err != nil {
-		Logger().Println("Error retrieving latest tag.")
 		return err
 	}
 	if tag == "" {
-		Logger().Println("No tags found for Repo: ", r.URL)
-		return fmt.Errorf("No tags found for Repo: %v", r.URL)
+		return fmt.Errorf("no tags found for repo: %v", r.URL)
 	} else if tag == r.latestTag {
-		Logger().Println("No new tags.")
 		return nil
 	}
 
@@ -180,9 +181,10 @@ func (r *Repo) checkoutLatestTag() error {
 	if err = r.gitCmd(params, r.Path); err == nil {
 		r.latestTag = tag
 		r.lastCommit, err = r.mostRecentCommit()
-		Logger().Printf("Tag %v checkout done.\n", tag)
+	} else {
+		return err
 	}
-	return err
+	return nil
 }
 
 // checkoutCommit checks out the specified commitHash.
@@ -190,7 +192,7 @@ func (r *Repo) checkoutCommit(commitHash string) error {
 	var err error
 	params := []string{"checkout", commitHash}
 	if err = r.gitCmd(params, r.Path); err == nil {
-		Logger().Printf("Commit %v checkout done.\n", commitHash)
+		log.Infof("commit %v checkout done", commitHash)
 	}
 	return err
 }
@@ -201,20 +203,20 @@ func (r *Repo) gitCmd(params []string, dir string) error {
 	if r.KeyPath != "" {
 		return r.gitCmdWithKey(params, dir)
 	}
-	return runCmd(gitBinary, params, dir)
+	return runCmd("git", params, dir)
 }
 
 // gitCmdWithKey is used for private repositories and requires an ssh key.
 // Note: currently only limited to Linux and OSX.
 func (r *Repo) gitCmdWithKey(params []string, dir string) error {
-	var gitSSH, script gitos.File
+	var gitSSH, script *os.File
 	// ensure temporary files deleted after usage
 	defer func() {
 		if gitSSH != nil {
-			gos.Remove(gitSSH.Name())
+			os.Remove(gitSSH.Name())
 		}
 		if script != nil {
-			gos.Remove(script.Name())
+			os.Remove(script.Name())
 		}
 	}()
 
@@ -239,9 +241,9 @@ func (r *Repo) gitCmdWithKey(params []string, dir string) error {
 func (r *Repo) Prepare() error {
 	// check if directory exists or is empty
 	// if not, create directory
-	fs, err := gos.ReadDir(r.Path)
+	fs, err := ioutil.ReadDir(r.Path)
 	if err != nil || len(fs) == 0 {
-		return gos.MkdirAll(r.Path, os.FileMode(0755))
+		return os.MkdirAll(r.Path, os.FileMode(0755))
 	}
 
 	// validate git repo
@@ -273,7 +275,7 @@ func (r *Repo) Prepare() error {
 // getMostRecentCommit gets the hash of the most recent commit to the
 // repository. Useful for checking if changes occur.
 func (r *Repo) mostRecentCommit() (string, error) {
-	command := gitBinary + ` --no-pager log -n 1 --pretty=format:"%H"`
+	command := "git" + ` --no-pager log -n 1 --pretty=format:"%H"`
 	c, args, err := caddy.SplitCommandAndArgs(command)
 	if err != nil {
 		return "", err
@@ -290,7 +292,7 @@ func (r *Repo) fetchLatestTag() (string, error) {
 		return "", err
 	}
 	// retrieve latest tag
-	command := gitBinary + ` describe origin --abbrev=0 --tags`
+	command := "git" + ` describe origin --abbrev=0 --tags`
 	c, args, err := caddy.SplitCommandAndArgs(command)
 	if err != nil {
 		return "", err
@@ -300,26 +302,12 @@ func (r *Repo) fetchLatestTag() (string, error) {
 
 // originURL retrieves remote origin url for the git repository at path
 func (r *Repo) originURL() (string, error) {
-	_, err := gos.Stat(r.Path)
+	_, err := os.Stat(r.Path)
 	if err != nil {
 		return "", err
 	}
 	args := []string{"config", "--get", "remote.origin.url"}
-	return runCmdOutput(gitBinary, args, r.Path)
-}
-
-// execThen executes r.Then.
-// It is trigged after successful git pull
-func (r *Repo) execThen() error {
-	var errs error
-	for _, command := range r.Then {
-		err := command.Exec(r.Path)
-		if err == nil {
-			Logger().Printf("Command '%v' successful.\n", command.Command())
-		}
-		errs = mergeErrors(errs, err)
-	}
-	return errs
+	return runCmdOutput("git", args, r.Path)
 }
 
 func mergeErrors(errs ...error) error {

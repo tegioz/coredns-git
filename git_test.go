@@ -2,17 +2,9 @@ package git
 
 import (
 	"io/ioutil"
-	"log"
 	"testing"
 	"time"
-
-	"github.com/abiosoft/caddy-git/gittest"
 )
-
-// init sets the OS used to fakeOS.
-func init() {
-	SetOS(gittest.FakeOS)
-}
 
 func check(t *testing.T, err error) {
 	if err != nil {
@@ -74,14 +66,12 @@ func TestGit(t *testing.T) {
 	}
 
 	// pull with success
-	logFile := gittest.Open("file")
-	SetLogger(log.New(logFile, "", 0))
 	tests := []struct {
 		repo   *Repo
 		output string
 	}{
 		{
-			&Repo{Path: "gitdir", URL: "https://github.com/user/repo.git", Then: []Then{NewThen("echo", "Hello")}},
+			&Repo{Path: "gitdir", URL: "https://github.com/user/repo.git"}},
 			`https://github.com/user/repo.git pulled.
 Command 'echo Hello' successful.
 `,

@@ -8,13 +8,8 @@ import (
 	"time"
 
 	"github.com/abiosoft/caddy-git/gittest"
-	"github.com/caddyserver/caddy"
+	"github.com/coredns/caddy"
 )
-
-// init sets the OS used to fakeOS
-func init() {
-	SetOS(gittest.FakeOS)
-}
 
 func TestGitSetup(t *testing.T) {
 	c := caddy.NewTestController("http", `git ssh://git@github.com:mholt/caddy.git`)

@@ -3,26 +3,11 @@ package git
 import (
 	"bytes"
 	"os"
+	"os/exec"
 	"strings"
 	"sync"
 	"time"
 )
-
-// Then is the command executed after successful pull.
-type Then interface {
-	Command() string
-	Exec(string) error
-}
-
-// NewThen creates a new Then command.
-func NewThen(command string, args ...string) Then {
-	return &gitCmd{command: command, args: args}
-}
-
-// NewLongThen creates a new long running Then comand.
-func NewLongThen(command string, args ...string) Then {
-	return &gitCmd{command: command, args: args, background: true, haltChan: make(chan struct{})}
-}
 
 type gitCmd struct {
 	command    string
@@ -36,7 +21,7 @@ type gitCmd struct {
 	sync.RWMutex
 }
 
-// Command returns the full command as configured in Caddyfile.
+// Command returns the full command as configured in Corefile.
 func (g *gitCmd) Command() string {
 	return g.command + " " + strings.Join(g.args, " ")
 }
@@ -56,9 +41,9 @@ func (g *gitCmd) Exec(dir string) error {
 func (g *gitCmd) restart() error {
 	err := g.Exec(g.dir)
 	if err == nil {
-		Logger().Printf("Restart successful for '%v'.\n", g.Command())
+		log.Infof("Restart successful for '%v'", g.Command())
 	} else {
-		Logger().Printf("Restart failed for '%v'.\n", g.Command())
+		log.Warningf("Restart failed for '%v'", g.Command())
 	}
 	return err
 }
@@ -120,7 +105,7 @@ func (g *gitCmd) monitorProcess() {
 			g.killProcess()
 		case r := <-respChan:
 			if r.err != nil || !r.state.Success() {
-				Logger().Printf("Command '%v' terminated with error", g.Command())
+				log.Warningf("Command %q terminated with error", g.Command())
 
 				g.Lock()
 				g.process = nil
@@ -129,10 +114,10 @@ func (g *gitCmd) monitorProcess() {
 
 				for i := 0; ; i++ {
 					if i >= numRetries {
-						Logger().Printf("Restart failed after 3 attempts for '%v'. Ignoring...\n", g.Command())
+						log.Warningf("Restart failed after 3 attempts for %q, ignoring...", g.Command())
 						break
 					}
-					Logger().Printf("Attempting restart %v of %v for '%v'\n", i+1, numRetries, g.Command())
+					log.Infof("Attempting restart %v of %v for '%v'", i+1, numRetries, g.Command())
 					if g.restart() == nil {
 						break
 					}
@@ -152,9 +137,9 @@ func (g *gitCmd) monitorProcess() {
 func (g *gitCmd) killProcess() {
 	g.Lock()
 	if err := g.process.Kill(); err != nil {
-		Logger().Printf("Could not terminate running command '%v'\n", g.command)
+		log.Warningf("Could not terminate running command '%v'", g.command)
 	} else {
-		Logger().Printf("Command '%v' terminated from within.\n", g.command)
+		log.Infof("Command '%v' terminated from within", g.command)
 	}
 	g.process = nil
 	g.monitoring = false
@@ -176,10 +161,10 @@ func (g *gitCmd) haltProcess() {
 // It runs command with args from directory at dir.
 // The executed process outputs to os.Stderr
 func runCmd(command string, args []string, dir string) error {
-	cmd := gos.Command(command, args...)
-	cmd.Stdout(os.Stderr)
-	cmd.Stderr(os.Stderr)
-	cmd.Dir(dir)
+	cmd := exec.Command(command, args...)
+	cmd.Stdout = os.Stderr
+	cmd.Stderr = os.Stderr
+	cmd.Dir = dir
 	if err := cmd.Start(); err != nil {
 		return err
 	}
@@ -190,20 +175,20 @@ func runCmd(command string, args []string, dir string) error {
 // It returns the resulting process and an error that occurs during while
 // starting the process (if any).
 func runCmdBackground(command string, args []string, dir string) (*os.Process, error) {
-	cmd := gos.Command(command, args...)
-	cmd.Dir(dir)
-	cmd.Stdout(os.Stderr)
-	cmd.Stderr(os.Stderr)
+	cmd := exec.Command(command, args...)
+	cmd.Stdout = os.Stderr
+	cmd.Stderr = os.Stderr
+	cmd.Dir = dir
 	err := cmd.Start()
-	return cmd.Process(), err
+	return cmd.Process, err
 }
 
 // runCmdOutput is a helper function to run commands and return output.
 // It runs command with args from directory at dir.
 // If successful, returns output and nil error
 func runCmdOutput(command string, args []string, dir string) (string, error) {
-	cmd := gos.Command(command, args...)
-	cmd.Dir(dir)
+	cmd := exec.Command(command, args...)
+	cmd.Dir = dir
 	var err error
 	if output, err := cmd.Output(); err == nil {
 		return string(bytes.TrimSpace(output)), nil
