@@ -17,8 +17,7 @@ pull only includes changes, so it is very efficient.
 If a pull fails, the service will retry up to three times. If the pull was not successful by then,
 it won't try again until the next interval.
 
-This plugin *requires* `git` to be installed on the system. Only Mac and Linux systems are
-supported.
+This plugin *requires* `git` to be installed on the system.
 
 Webhooks are not supported, this is a pure pull model.
 
