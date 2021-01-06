@@ -39,18 +39,16 @@ git [REPO PATH] {
 	repo        REPO
 	path        PATH
 	branch      BRANCH
-	key         KEY
 	interval    INTERVAL
-	clone_args  CLONE_ARGS
+	args        ARGS
 	pull_args   PULL_ARGS
 }
 ```
-* **REPO** is the URL to the repository; SSH and HTTPS URLs are supported.
+* **REPO** is the URL to the repository; only HTTPS URLs are supported.
 * **PATH** is the path to clone the repository into; default is site root. It can be absolute or relative (to site root).
 * **BRANCh** is the branch or tag to pull; default is master branch. **`{latest}`** is a placeholder for latest tag which ensures the most recent tag is always pulled.
-* **KEY** is the path to the SSH private key; only required for private repositories.
 * **INTERVAl** is the number of seconds between pulls; default is 3600 (1 hour), minimum 5. An interval of -1 disables periodic pull.
-* **CLONE_ARGS** is the additional cli args to pass to `git clone` e.g. `--depth=1`. `git clone` is called when the source is being fetched the first time.
+* **ARGS** is the additional cli args to pass to `git clone` e.g. `--depth=1`. `git clone` is called when the source is being fetched the first time.
 * **PULL_ARGS** is the additional cli args to pass to `git pull` e.g. `-s recursive -X theirs`. `git pull` is used when the source is being updated.
 
 ## Examples

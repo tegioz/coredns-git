@@ -2,11 +2,8 @@ package git
 
 import (
 	"fmt"
-	"net/url"
 	"path/filepath"
-	"runtime"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/coredns/caddy"
@@ -80,7 +77,7 @@ func parse(c *caddy.Controller) (Git, error) {
 			repo.Path = clonePath(args[1])
 			fallthrough
 		case 1:
-			repo.URL = RepoURL(args[0])
+			repo.URL = args[0]
 		}
 
 		for c.NextBlock() {
@@ -89,7 +86,7 @@ func parse(c *caddy.Controller) (Git, error) {
 				if !c.NextArg() {
 					return nil, plugin.Error("git", c.ArgErr())
 				}
-				repo.URL = RepoURL(c.Val())
+				repo.URL = c.Val()
 			case "path":
 				if !c.NextArg() {
 					return nil, plugin.Error("git", c.ArgErr())
@@ -100,11 +97,6 @@ func parse(c *caddy.Controller) (Git, error) {
 					return nil, plugin.Error("git", c.ArgErr())
 				}
 				repo.Branch = c.Val()
-			case "key":
-				if !c.NextArg() {
-					return nil, plugin.Error("git", c.ArgErr())
-				}
-				repo.KeyPath = c.Val()
 			case "interval":
 				if !c.NextArg() {
 					return nil, plugin.Error("git", c.ArgErr())
@@ -113,7 +105,7 @@ func parse(c *caddy.Controller) (Git, error) {
 				if t > 0 {
 					repo.Interval = time.Duration(t) * time.Second
 				}
-			case "clone_args":
+			case "args":
 				repo.CloneArgs = c.RemainingArgs()
 			case "pull_args":
 				repo.PullArgs = c.RemainingArgs()
@@ -124,23 +116,11 @@ func parse(c *caddy.Controller) (Git, error) {
 
 		// if repo is not specified, return error
 		if repo.URL == "" {
-			return nil, plugin.Error("git", c.ArgErr())
-		}
-		// validate repo url
-		if repoURL, err := parseURL(string(repo.URL), repo.KeyPath != ""); err != nil {
-			return nil, plugin.Error("git", err)
-		} else {
-			repo.URL = RepoURL(repoURL.String())
-			repo.Host = repoURL.Hostname()
+			return nil, plugin.Error("git", fmt.Errorf("no URL set"))
 		}
 
-		// if private key is not specified, convert repository URL to https
-		// to avoid ssh authentication
-		// else validate git URL
-		if repo.KeyPath != "" {
-			if runtime.GOOS == "windows" {
-				return nil, plugin.Error("git", fmt.Errorf("ssh authentication not yet supported on Windows"))
-			}
+		if repo.Path == "" {
+			return nil, plugin.Error("git", fmt.Errorf("no path set"))
 		}
 
 		// prepare repo for use
@@ -152,29 +132,4 @@ func parse(c *caddy.Controller) (Git, error) {
 	}
 
 	return git, nil
-}
-
-// parseURL validates if repoUrl is a valid git url.
-func parseURL(repoURL string, private bool) (*url.URL, error) {
-	// scheme
-	urlParts := strings.Split(repoURL, "://")
-	switch {
-	case strings.HasPrefix(repoURL, "https://"):
-	case strings.HasPrefix(repoURL, "http://"):
-	case strings.HasPrefix(repoURL, "ssh://"):
-	case len(urlParts) > 1:
-		return nil, fmt.Errorf("Invalid url scheme %q. If url contains port, scheme is required", urlParts[0])
-	default:
-		if private {
-			repoURL = "ssh://" + repoURL
-		} else {
-			repoURL = "https://" + repoURL
-		}
-	}
-
-	u, err := url.Parse(repoURL)
-	if err != nil {
-		return nil, err
-	}
-	return u, nil
 }

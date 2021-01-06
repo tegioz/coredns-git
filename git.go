@@ -3,7 +3,6 @@ package git
 import (
 	"fmt"
 	"io/ioutil"
-	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -31,39 +30,12 @@ func (g Git) Repo(i int) *Repo {
 	return nil
 }
 
-// RepoURL is the repository url.
-type RepoURL string
-
-// String satisfies stringer and attempts to strip off authentication
-// info from url if it exists.
-func (r RepoURL) String() string {
-	u, err := url.Parse(string(r))
-	if err != nil {
-		return string(r)
-	}
-	if u.User != nil {
-		u.User = url.User(u.User.Username())
-	}
-	return u.String()
-}
-
-// Val returns git friendly Val that can be
-// passed to git clone.
-func (r RepoURL) Val() string {
-	if strings.HasPrefix(string(r), "ssh://") {
-		return strings.TrimPrefix(string(r), "ssh://")
-	}
-	return string(r)
-}
-
 // Repo is the structure that holds required information
 // of a git repository.
 type Repo struct {
-	URL        RepoURL       // Repository URL
+	URL        string        // Repository URL
 	Path       string        // Directory to pull to
-	Host       string        // Git domain host e.g. github.com
 	Branch     string        // Git branch
-	KeyPath    string        // Path to private ssh key
 	Interval   time.Duration // Interval between pulls
 	CloneArgs  []string      // Additonal cli args to pass to git clone
 	PullArgs   []string      // Additonal cli args to pass to git pull
@@ -139,11 +111,11 @@ func (r *Repo) pull() error {
 
 // clone performs git clone.
 func (r *Repo) clone() error {
-	params := append([]string{"clone", "-b", r.Branch}, append(r.CloneArgs, r.URL.Val(), r.Path)...)
+	params := append([]string{"clone", "-b", r.Branch}, append(r.CloneArgs, r.URL, r.Path)...)
 
 	tagMode := r.Branch == latestTag
 	if tagMode {
-		params = append([]string{"clone"}, append(r.CloneArgs, r.URL.Val(), r.Path)...)
+		params = append([]string{"clone"}, append(r.CloneArgs, r.URL, r.Path)...)
 	}
 
 	var err error
@@ -198,43 +170,7 @@ func (r *Repo) checkoutCommit(commitHash string) error {
 }
 
 // gitCmd performs a git command.
-func (r *Repo) gitCmd(params []string, dir string) error {
-	// if key is specified, use ssh key
-	if r.KeyPath != "" {
-		return r.gitCmdWithKey(params, dir)
-	}
-	return runCmd("git", params, dir)
-}
-
-// gitCmdWithKey is used for private repositories and requires an ssh key.
-// Note: currently only limited to Linux and OSX.
-func (r *Repo) gitCmdWithKey(params []string, dir string) error {
-	var gitSSH, script *os.File
-	// ensure temporary files deleted after usage
-	defer func() {
-		if gitSSH != nil {
-			os.Remove(gitSSH.Name())
-		}
-		if script != nil {
-			os.Remove(script.Name())
-		}
-	}()
-
-	var err error
-	// write git.sh script to temp file
-	gitSSH, err = writeScriptFile(gitWrapperScript())
-	if err != nil {
-		return err
-	}
-
-	// write git bash script to file
-	script, err = writeScriptFile(bashScript(gitSSH.Name(), r, params))
-	if err != nil {
-		return err
-	}
-
-	return runCmd(script.Name(), nil, dir)
-}
+func (r *Repo) gitCmd(params []string, dir string) error { return runCmd("git", params, dir) }
 
 // Prepare prepares for a git pull
 // and validates the configured directory
@@ -259,13 +195,13 @@ func (r *Repo) Prepare() error {
 		// check if same repository
 		var repoURL string
 		if repoURL, err = r.originURL(); err == nil {
-			if strings.TrimSuffix(repoURL, ".git") == strings.TrimSuffix(r.URL.Val(), ".git") {
+			if strings.TrimSuffix(repoURL, ".git") == strings.TrimSuffix(r.URL, ".git") {
 				r.pulled = true
 				return nil
 			}
 		}
 		if err != nil {
-			return fmt.Errorf("cannot retrieve repo url for %v Error: %v", r.Path, err)
+			return fmt.Errorf("cannot retrieve repo url for %v: %s", r.Path, err)
 		}
 		return fmt.Errorf("another git repo '%v' exists at %v", repoURL, r.Path)
 	}
