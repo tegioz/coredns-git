@@ -50,8 +50,8 @@ git [REPO PATH] {
 
  *  **REPO** is the URL to the repository; only HTTPS URLs are supported.
 
- *  **PATH** is the path to clone the repository into; default is site root. It can be absolute or
-    relative (to site root).
+ *  **PATH** is the path to clone the repository into; default is site root (if set). It can be
+    absolute or relative (to site root). See the *root* plugin.
 
  *  **BRANCh** is the branch or tag to pull; default is master branch. **`{latest}`** is a
     placeholder for latest tag which ensures the most recent tag is always pulled.
@@ -78,3 +78,7 @@ Public repository pulled into the "subdir" directory in the site root:
 ~~~
 git github.com/user/myproject subdir
 ~~~
+
+## Also See
+
+The *root* plugin for setting the root.
