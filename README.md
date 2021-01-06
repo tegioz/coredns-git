@@ -6,7 +6,8 @@
 
 ## Description
 
-*git* clones a git repository into the site. This makes it possible to deploy your zones with a simple git push.
+*git* clones a git repository into the site. This makes it possible to deploy your zones with a
+simple git push.
 
 The *git* plugin starts a service routine that runs during the lifetime of the server. When the
 service starts, it clones the repository. While the server is still up, it pulls the latest every
@@ -23,18 +24,20 @@ Webhooks are not supported, this is a pure pull model.
 
 ## Syntax
 
-``` txt
+~~~ txt
 git REPO [PATH]
-```
-* **REPO** is the URL to the repository; SSH and HTTPS URLs are supported
-* **PATH** is the path, relative to site root, to clone the repository into; default is site root
+~~~
+
+ *  **REPO** is the URL to the repository; SSH and HTTPS URLs are supported
+
+ *  **PATH** is the path, relative to site root, to clone the repository into; default is site root
 
 This simplified syntax pulls from master every 3600 seconds (1 hour) and only works for public
 repositories.
 
 For more control or to use a private repository, use the following syntax:
 
-```
+~~~
 git [REPO PATH] {
 	repo        REPO
 	path        PATH
@@ -43,33 +46,35 @@ git [REPO PATH] {
 	args        ARGS
 	pull_args   PULL_ARGS
 }
-```
-* **REPO** is the URL to the repository; only HTTPS URLs are supported.
-* **PATH** is the path to clone the repository into; default is site root. It can be absolute or relative (to site root).
-* **BRANCh** is the branch or tag to pull; default is master branch. **`{latest}`** is a placeholder for latest tag which ensures the most recent tag is always pulled.
-* **INTERVAl** is the number of seconds between pulls; default is 3600 (1 hour), minimum 5. An interval of -1 disables periodic pull.
-* **ARGS** is the additional cli args to pass to `git clone` e.g. `--depth=1`. `git clone` is called when the source is being fetched the first time.
-* **PULL_ARGS** is the additional cli args to pass to `git pull` e.g. `-s recursive -X theirs`. `git pull` is used when the source is being updated.
+~~~
+
+ *  **REPO** is the URL to the repository; only HTTPS URLs are supported.
+
+ *  **PATH** is the path to clone the repository into; default is site root. It can be absolute or
+    relative (to site root).
+
+ *  **BRANCh** is the branch or tag to pull; default is master branch. **`{latest}`** is a
+    placeholder for latest tag which ensures the most recent tag is always pulled.
+
+ *  **INTERVAl** is the number of seconds between pulls; default is 3600 (1 hour), minimum 5. An
+    interval of -1 disables periodic pull.
+
+ *  **ARGS** is the additional cli args to pass to `git clone` e.g. `--depth=1`. `git clone` is
+    called when the source is being fetched the first time.
+
+ *  **PULL_ARGS** is the additional cli args to pass to `git pull` e.g. `-s recursive -X theirs`.
+    `git pull` is used when the source is being updated.
 
 ## Examples
 
 Public repository pulled into site root every hour:
-```
+
+~~~
 git github.com/user/myproject
-```
+~~~
 
-Public repository pulled into the "subfolder" directory in the site root:
-```
-git github.com/user/myproject subfolder
-```
+Public repository pulled into the "subdir" directory in the site root:
 
-Private repository pulled into the "dirA" directory with tag v1.0 once per day:
-``` corefile
-git {
-	repo     git@github.com:user/myproject
-	branch   v1.0
-	key      /home/user/.ssh/id_rsa
-	path     dirA
-	interval 86400
-}
-```
+~~~
+git github.com/user/myproject subdir
+~~~
