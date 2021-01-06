@@ -245,20 +245,3 @@ func (r *Repo) originURL() (string, error) {
 	args := []string{"config", "--get", "remote.origin.url"}
 	return runCmdOutput("git", args, r.Path)
 }
-
-func mergeErrors(errs ...error) error {
-	if len(errs) == 0 {
-		return nil
-	}
-	var err error
-	for _, e := range errs {
-		if err == nil {
-			err = e
-			continue
-		}
-		if e != nil {
-			err = fmt.Errorf("%v\n%v", err.Error(), e.Error())
-		}
-	}
-	return err
-}
