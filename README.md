@@ -68,14 +68,20 @@ git [REPO PATH] {
 
 Public repository pulled into site root every hour:
 
-~~~
-git github.com/user/myproject
+~~~ corefile
+example.org {
+    root /etc/zones
+    git github.com/user/myproject
+}
 ~~~
 
 Public repository pulled into the "subdir" directory in the site root:
 
-~~~
-git github.com/user/myproject subdir
+~~~ corefile
+example.org {
+    root /etc/zones
+    git github.com/user/myproject subdir
+}
 ~~~
 
 ## Also See
