@@ -1,8 +1,3 @@
-INCLUDED IN COREDNS BY DEFAULT. SEE INCLUSION PR HERE: https://github.com/coredns/coredns/pull/4386
-
-DONT USE THIS
-
-
 # git
 
 ## Name
