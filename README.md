@@ -52,7 +52,7 @@ git [REPO PATH] {
  *  **PATH** is the path to clone the repository into; default is site root (if set). It can be
     absolute or relative (to site root). See the *root* plugin.
 
- *  **BRANCh** is the branch or tag to pull; default is master branch. **`{latest}`** is a
+ *  **BRANCH** is the branch or tag to pull; default is master branch. **`{latest}`** is a
     placeholder for latest tag which ensures the most recent tag is always pulled.
 
  *  **INTERVAl** is the number of seconds between pulls; default is 3600 (1 hour), minimum 5. An
