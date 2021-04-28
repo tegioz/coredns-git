@@ -1,0 +1,16 @@
+# Artifact Hub package metadata file
+# https://github.com/artifacthub/hub/blob/master/docs/metadata/artifacthub-pkg.yml
+version: 1.0.0
+name: git
+displayName: git
+createdAt: 2021-04-27T10:00:00Z
+description: Pull git repositories
+license: MIT
+homeURL: https://coredns.io
+keywords:
+  - coredns
+  - plugin
+  - git
+links:
+  - name: Source
+    url: https://github.com/miekg/coredns-git
